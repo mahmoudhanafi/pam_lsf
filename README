@@ -1,0 +1,20 @@
+PAM-LSF-MODULE
+
+HOW TO BUILD
+1. Edit Makefile
+   a. LSF_TOPDIR
+   b. INCLUDE_DIR
+   c. LSF_LIBDIR
+
+2. make
+
+3. Copy pam_lsf.so to /lib/security/
+
+4. Copy pam.d.sample /etc/pam.d/yourappname
+
+HOW TO USE
+Currently I only have "auth" and "account" functions. Both of these accecpt username from the application and will return PAM_SUCESS if user has a job running on the node where the pam_lsf.so is used. You must pass two variables LSF_SERVERDIR and LSF_ENVDIR. You can also pass the debug options.
+
+
+
+

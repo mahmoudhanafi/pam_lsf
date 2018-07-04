@@ -1,0 +1,20 @@
+#%PAM-1.0
+auth        required      pam_env.so
+auth        required      pam_unix.so likeauth nullok
+auth        sufficient    pam_listfile.so onerr=fail item=user sense=allow file=/etc/access
+auth        sufficient    pam_lsf.so LSF_SERVERDIR=/usr/local/lsf6.0/6.0/linux2.4-glibc2.3-x86/etc LSF_ENVDIR=/usr/local/lsf6.0/conf debug
+auth        required      pam_deny.so
+
+account     required      pam_unix.so
+account     sufficient    pam_listfile.so onerr=fail item=user sense=allow file=/etc/access
+account     sufficient    pam_lsf.so LSF_SERVERDIR=/usr/local/lsf6.0/6.0/linux2.4-glibc2.3-x86/etc LSF_ENVDIR=/usr/local/lsf6.0/conf debug
+account     required      pam_deny.so
+
+
+password    required      pam_cracklib.so retry=3 type=
+password    sufficient    pam_unix.so nullok use_authtok md5 shadow
+password    required      pam_deny.so
+
+session     required      pam_limits.so
+session     required      pam_unix.so
+
