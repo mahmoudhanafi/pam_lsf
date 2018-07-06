@@ -32,47 +32,58 @@
 #include <security/_pam_macros.h>
 
 /* LSF Function to check for running jobs */
-int lsf_check(char *username, char *hostname, int debug)
+int lsf_check(char *username, char *hostname, int debug, int numtries)
 {
    int options = CUR_JOB;
-   int jobs;
+   int jobs, try;
    /* Inital LSF */
 
-   if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: Init LSF \n");
+   if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: Init LSF \n");
    if (lsb_init("pam_lsf") < 0) {
                 lsb_perror("check_user_host: lsb_init() failed");
                 return 0;
    }
-
-   if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: checking lsf user=%s hostname=%s \n",username,hostname);
-   jobs = lsb_openjobinfo( 0, NULL, username, NULL, hostname, options);
-   lsb_closejobinfo();
-   if (jobs < 1)
-	return 0;
-   else
-	return 1;
+   for ( try = 0; try < numtries; try++ ) {
+       if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: checking lsf user=%s host=%s try %d of %d \n",username,hostname,try,numtries);
+       jobs = lsb_openjobinfo( 0, NULL, username, NULL, hostname, options);
+       lsb_closejobinfo();
+       if (jobs > 0) return 1;
+       sleep(1);
+   }
+   syslog(LOG_NOTICE,"pam_lsf.so: user %s on host %s has no running jobs\n",username,hostname,try);
+   return 0;
 }
 
-int pars_args(int argc, char **argv, int *debug)
+int pars_args(int argc, char **argv, int *debug, int *numtries)
 {
         int i;
-	debug = 0;	
+	int nt;
+	/* 
+	syslog(LOG_NOTICE," debug is %d, numtries is %d\n",*debug,*numtries);
+	*/
 	if ( argc < 1)
 		return 1;
 	for (i=0; i < argc; i++) {
-		if ( strncasecmp(argv[i],"LSF_SERVERDIR",16 ) ) {
-			syslog(LOG_NOTICE," argv[%i] = %s\n",i,argv[i]);
+		if ( strncasecmp(argv[i],"LSF_SERVERDIR",13 ) == 0 ) {
+			/* syslog(LOG_NOTICE,"1 argv[%i] = %s\n",i,argv[i]); */
 			putenv(argv[i]);
 		}
-		else if ( strncasecmp(argv[i],"LSF_ENVDIR",10 ) ) {
-			syslog(LOG_NOTICE," argv[%i] = %s\n",i,argv[i]);
+		else if ( strncasecmp(argv[i],"LSF_ENVDIR",10 ) == 0 ) {
+			/* syslog(LOG_NOTICE,"2 argv[%i] = %s\n",i,argv[i]); */
 			putenv(argv[i]);
 		}
-		else if ( strncasecmp(argv[i],"DEBUG",sizeof("DEBUG") ) ) {
-			debug = 1;
-			syslog(LOG_NOTICE," argv[%i] = %s\n",i,argv[i]);
+		else if ( strncasecmp(argv[i],"DEBUG",sizeof("DEBUG") ) == 0 ) {
+			/* syslog(LOG_NOTICE,"3 argv[%i] = %s\n",i,argv[i]); */
+			*debug = 1;
+		}
+		else if ( atoi(argv[i]) != 0 ) {
+			*numtries = atoi(argv[i]);
+			/* syslog(LOG_NOTICE,"4 argv[%i] = %s, %d\n",i,argv[i],*numtries); */
 		}
 	}	
+	/* 
+	syslog(LOG_NOTICE," debug is %d, numtries is %d\n",*debug,*numtries);
+	*/
 	return 0;
 }
 
@@ -85,16 +96,21 @@ int pam_sm_authenticate(pam_handle_t *pamh,int flags,int argc
     int retval;
     const char *user=NULL;
     struct utsname name;
-    int debug=0;
+    int debug, numtries;
+    debug=0;
+    numtries=5;
 
-    if ( pars_args(argc, argv, &debug) == 1 )
+    if ( pars_args(argc, argv, &debug, &numtries) == 1 )
 	syslog(LOG_ERR,"pam_lsf.so: Argument parsing failed\n");
 
-    if(! debug)	syslog(LOG_NOTICE,"pam_lsf.so: parsing done\n");
+    /*
+    syslog(LOG_NOTICE," debug is %d, numtries is %d\n",debug,numtries);
+    */
+    if( debug)	syslog(LOG_NOTICE,"pam_lsf.so: parsing done, debug is %d, numtries id %d\n", debug, numtries);
     /*
      * authentication requires we know who the user wants to be
      */
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: Starting Auth\n");
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: Starting Auth\n");
     
     retval = pam_get_user(pamh, &user, NULL);
     if (retval != PAM_SUCCESS) {
@@ -108,17 +124,17 @@ int pam_sm_authenticate(pam_handle_t *pamh,int flags,int argc
 	    return PAM_USER_UNKNOWN;
     }
 
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: User name = %s\n",user);
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: User name = %s\n",user);
     /* Get host name where we are running */
    if (uname (&name) == -1) {
         syslog(LOG_ERR,"pam_lsf.so: couldn't get hostname\n");
         return PAM_AUTH_ERR;
     }
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: Host name = %s\n",name.nodename);
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: Host name = %s\n",name.nodename);
 
-    retval = lsf_check(user, name.nodename, debug);
+    retval = lsf_check(user, name.nodename, debug, numtries);
     
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: lsf_check retval = %i\n",retval);
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: lsf_check retval = %i\n",retval);
 
     if ( retval < 1 ) {
 	syslog(LOG_NOTICE,"PAM_LSF.so: returing fail from auth\n");
@@ -150,14 +166,19 @@ int pam_sm_acct_mgmt(pam_handle_t *pamh,int flags,int argc
     int retval;
     const char *user=NULL;
     struct utsname name;
-    int debug=0;
+    int debug, numtries;
+    debug=0;
+    numtries=5;
 
-    if ( pars_args(argc, argv, &debug) == 1 )
+    if ( pars_args(argc, argv, &debug, &numtries) == 1 )
         syslog(LOG_ERR,"pam_lsf.so: Argument parsing failed\n");
 
-     if(! debug)  syslog(LOG_NOTICE,"pam_lsf.so: parsing done\n");
+    /*
+    syslog(LOG_NOTICE," debug is %d, numtries is %d\n",debug,numtries);
+    */
+    if( debug)	syslog(LOG_NOTICE,"pam_lsf.so: parsing done, debug is %d, numtries id %d\n", debug, numtries);
 	
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: Starting acct_mgmt\n");
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: Starting acct_mgmt\n");
     
     retval = pam_get_user(pamh, &user, NULL);
     if (retval != PAM_SUCCESS) {
@@ -170,18 +191,18 @@ int pam_sm_acct_mgmt(pam_handle_t *pamh,int flags,int argc
         if (retval != PAM_SUCCESS)
             return PAM_USER_UNKNOWN;
     }
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: User name = %s\n",user);
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: User name = %s\n",user);
     /* Get host name where we are running */
    if (uname (&name) == -1) {
         syslog(LOG_ERR,"pam_lsf.so: couldn't get hostname\n");
         return PAM_AUTH_ERR;
     }
 
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: Host name = %s\n",name.nodename);
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: Host name = %s\n",name.nodename);
 
-    retval = lsf_check(user, name.nodename, debug);
+    retval = lsf_check(user, name.nodename, debug, numtries);
 
-    if (! debug ) syslog(LOG_NOTICE,"pam_lsf.so: lsf_check retval = %i\n",retval);
+    if ( debug ) syslog(LOG_NOTICE,"pam_lsf.so: lsf_check retval = %i\n",retval);
 
     if ( retval < 1 ) {
         syslog(LOG_NOTICE,"PAM_LSF.so: returing fail from acctmgt\n");

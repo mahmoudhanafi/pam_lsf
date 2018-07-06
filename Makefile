@@ -1,8 +1,8 @@
 CC = gcc 
 
-LSF_TOPDIR = /usr/local/lsf/6.0
+LSF_TOPDIR = /app/lsfhpc/
 INCLUDE_DIR = ${LSF_TOPDIR}/include
-LSF_LIBDIR = ${LSF_TOPDIR}/linux2.4-glibc2.3-x86/lib
+LSF_LIBDIR = ${LSF_TOPDIR}/linux2.6-glibc2.3-x86_64/lib
 #LIBS = -lnsl /usr/lib/libc_nonshared.a ${LSF_LIBDIR}/libbat.a ${LSF_LIBDIR}/liblsf.a 
 LIBS = -lnsl ${LSF_LIBDIR}/libbat.a ${LSF_LIBDIR}/liblsf.a 
 #CFLAGS = -g -DDEBUG

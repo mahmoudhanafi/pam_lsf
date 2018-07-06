@@ -2,12 +2,12 @@
 auth        required      pam_env.so
 auth        required      pam_unix.so likeauth nullok
 auth        sufficient    pam_listfile.so onerr=fail item=user sense=allow file=/etc/access
-auth        sufficient    pam_lsf.so LSF_SERVERDIR=/usr/local/lsf6.0/6.0/linux2.4-glibc2.3-x86/etc LSF_ENVDIR=/usr/local/lsf6.0/conf debug
+auth        sufficient    pam_lsf.so LSF_SERVERDIR=/usr/local/lsf6.0/6.0/linux2.4-glibc2.3-x86/etc LSF_ENVDIR=/usr/local/lsf6.0/conf debug 6
 auth        required      pam_deny.so
 
 account     required      pam_unix.so
 account     sufficient    pam_listfile.so onerr=fail item=user sense=allow file=/etc/access
-account     sufficient    pam_lsf.so LSF_SERVERDIR=/usr/local/lsf6.0/6.0/linux2.4-glibc2.3-x86/etc LSF_ENVDIR=/usr/local/lsf6.0/conf debug
+account     sufficient    pam_lsf.so LSF_SERVERDIR=/usr/local/lsf6.0/6.0/linux2.4-glibc2.3-x86/etc LSF_ENVDIR=/usr/local/lsf6.0/conf debug 6
 account     required      pam_deny.so
 
 
